@@ -15,6 +15,10 @@ class Vector3 {
         return new Vector3(x - other.x, y - other.y, z - other.z);
     }
 
+    double length() {
+        return Math.sqrt(x * x + y * y + z * z);
+    }
+
     Vector3 scale(double scalar) {
         return new Vector3(x * scalar, y * scalar, z * scalar);
     }
