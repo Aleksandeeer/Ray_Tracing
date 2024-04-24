@@ -14,7 +14,7 @@ public class RayTracer {
         Vector3 cameraPos = new Vector3(0, 0, 0);
 
         // Определение сферы
-        Sphere sphere = new Sphere(new Vector3(0, 0, -5), 1, Color.RED);
+        Sphere sphere = new Sphere(new Vector3(0, 0, -5), 1, Color.GREEN);
 
         // Трассировка
         for (int i = 0; i < width; i++) {
