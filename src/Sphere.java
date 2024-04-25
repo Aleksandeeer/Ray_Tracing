@@ -4,11 +4,15 @@ class Sphere {
     Vector3 center;
     double radius;
     Color color;
+    double absorption; // Коэффициент поглощения
+    double reflection; // Коэффициент отражения
 
-    Sphere(Vector3 center, double radius, Color color) {
+    Sphere(Vector3 center, double radius, Color color, double reflection) {
         this.center = center;
         this.radius = radius;
         this.color = color;
+//        this.absorption = absorption;
+        this.reflection = reflection;
     }
 
     // Тестирование пересечения
