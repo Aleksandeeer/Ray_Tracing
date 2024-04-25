@@ -36,14 +36,19 @@ public class RayTracer {
                 double minT = Double.POSITIVE_INFINITY;
                 Color pixelColor = FLAT_COLOR;
 
-                // Проверяем пересечение с плоскостью
+                // Проверяем пересечение с плоскостью, только если пока не найдено ближайшее пересечение
                 double tPlane = plane.intersect(ray);
                 if (tPlane > 0 && tPlane < minT) {
                     minT = tPlane;
-                    pixelColor = plane.getColor(); // Цвет пикселя берем из цвета плоскости
+                    // Проверяем, видима ли точка на плоскости из источника света и за сферой относительно источника света
+                    if (!isShadowed(ray, sphere, lightPos) && lightPos.subtract(ray.origin.add(ray.direction.scale(tPlane))).dot(sphere.center.subtract(lightPos)) > 0) {
+                        pixelColor = plane.getColor(); // Освещенная точка
+                    } else {
+                        pixelColor = plane.getColor().darker(); // Тень от сферы
+                    }
                 }
 
-                // Проверяем пересечение с сферой
+                // Проверяем пересечение с сферой только если плоскость не пересекается или пересечение сферы ближе
                 double tSphere = sphere.intersect(ray);
                 if (tSphere > 0 && tSphere < minT) {
                     minT = tSphere;
@@ -56,6 +61,7 @@ public class RayTracer {
         }
 
 
+
         // Сохранение картинки
         try {
             File output = new File("output.png");
@@ -66,6 +72,7 @@ public class RayTracer {
         }
     }
 
+    // Основная логика трассировки лучей
     public static Color trace(Ray ray, Sphere sphere, Vector3 lightPos, Color lightColor) {
         double t = sphere.intersect(ray);
         if (t > 0) {
@@ -97,9 +104,6 @@ public class RayTracer {
             return FLAT_COLOR;
         }
     }
-
-
-
 
     public static double intersectPlane(Ray ray) {
         // Проверяем, что луч направлен вниз по оси Z
