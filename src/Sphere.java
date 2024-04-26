@@ -7,12 +7,16 @@ class Sphere {
     double absorption; // Коэффициент поглощения
     double reflection; // Коэффициент отражения
 
-    Sphere(Vector3 center, double radius, Color color, double reflection) {
+    Sphere(Vector3 center, double radius, Color color, double reflection, double absorption) {
         this.center = center;
         this.radius = radius;
         this.color = color;
-//        this.absorption = absorption;
+        this.absorption = absorption;
         this.reflection = reflection;
+    }
+
+    double getRadius() {
+        return radius;
     }
 
     // Тестирование пересечения
@@ -27,5 +31,13 @@ class Sphere {
         } else {
             return (-b - Math.sqrt(discriminant)) / (2.0 * a);
         }
+    }
+
+    public Vector3 getCenter() {
+        return center;
+    }
+
+    public void setCenter(Vector3 center) {
+        this.center = center;
     }
 }
