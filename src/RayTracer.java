@@ -1,10 +1,13 @@
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Scanner;
 
 public class RayTracer {
     private static final Color SKY_COLOR = new Color(0, 247, 255, 255);
@@ -12,25 +15,49 @@ public class RayTracer {
     private static final Color FLAT_COLOR = new Color(62, 255, 107, 255);
     private static final Color SPHERE_COLOR = new Color(255, 0, 0, 255);
     public static void main(String[] args) {
+        Map<String, double[]> data_map = new HashMap<>();
+        try {
+            Scanner scanner = new Scanner(new File("D:\\JAVA\\Ray_tracing\\src\\input.txt"), StandardCharsets.UTF_8);
+
+            while (scanner.hasNextLine()) {
+                String[] temp = scanner.nextLine().split(" ");
+                String key = temp[0];
+                double[] values = new double[temp.length - 1];
+
+                for (int i = 1; i < temp.length; i++) {
+                    values[i - 1] = Double.parseDouble(temp[i]);
+                }
+
+                data_map.put(key, values);
+            }
+
+            scanner.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         Runtime runtime = Runtime.getRuntime();
         double memoryBefore = runtime.totalMemory() - runtime.freeMemory();
 
-        int width = 2000, height = 2000;
+        int width = (int)data_map.get("width")[0], height = (int)data_map.get("height")[0];
+
         // Создание двух отдельных изображений для куба и сферы
         BufferedImage sphereImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         BufferedImage cubeImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 
         // Определение позиции камеры
-        Vector3 cameraPos = new Vector3(0, 0, 0);
+        Vector3 cameraPos = new Vector3(data_map.get("camera_pos")[0], data_map.get("camera_pos")[1], data_map.get("camera_pos")[2]);
 
         // Определение поверхности под сферой (плоскость)
-        Plane plane = new Plane(new Vector3(0, 1, 0), -1.5, FLAT_COLOR);
+        Plane plane = new Plane(new Vector3(data_map.get("plane_pos")[0], data_map.get("plane_pos")[1], data_map.get("plane_pos")[2]),
+                -1.5, FLAT_COLOR);
 
         // Определение сферы
-        Sphere sphere = new Sphere(new Vector3(0, 0, -5), 1, SPHERE_COLOR, 0.15, 0.2);
+        Sphere sphere = new Sphere(new Vector3(data_map.get("sphere")[0], data_map.get("sphere")[1], data_map.get("sphere")[2]),
+                data_map.get("sphere")[3], SPHERE_COLOR, data_map.get("sphere")[4], data_map.get("sphere")[5]);
 
         // Определение источника света
-        Vector3 lightPos = new Vector3(1, 1, -3);
+        Vector3 lightPos = new Vector3(data_map.get("light_pos")[0], data_map.get("light_pos")[1], data_map.get("light_pos")[2]);
 
         // Обьявление параметров
         double minT, x, y, tPlane;
@@ -66,7 +93,7 @@ public class RayTracer {
                 double tSphere = sphere.intersect(ray);
                 if (tSphere > 0 && tSphere < minT) {
                     minT = tSphere;
-                    pixelColor = trace(ray, sphere, lightPos, RAY_COLOR);
+                    pixelColor = trace_sphere(ray, sphere, lightPos, RAY_COLOR);
                 }
 
                 // Устанавливаем цвет пикселя в изображении
@@ -140,7 +167,7 @@ public class RayTracer {
     }
 
     // Основная логика трассировки лучей
-    public static Color trace(Ray ray, Sphere sphere, Vector3 lightPos, Color lightColor) {
+    public static Color trace_sphere(Ray ray, Sphere sphere, Vector3 lightPos, Color lightColor) {
         double t = sphere.intersect(ray);
         if (t > 0) {
             Vector3 intersectionPoint = ray.origin.add(ray.direction.scale(t));

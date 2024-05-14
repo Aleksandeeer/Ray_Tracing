@@ -130,21 +130,4 @@ class Cube {
         double maxDistance = 10.0; // Максимальное расстояние, на котором нет тени
         return Math.max(0, 1 - distanceToLight / maxDistance);
     }
-
-
-    public static Vector3 rotatePoint(Vector3 point, double angle, Vector3 axis) {
-        double radians = Math.toRadians(angle);
-        double cosTheta = Math.cos(radians);
-        double sinTheta = Math.sin(radians);
-
-        double x = point.x;
-        double y = point.y;
-
-        // Поворачиваем точку вокруг оси Z
-        double newX = x * cosTheta - y * sinTheta;
-        double newY = x * sinTheta + y * cosTheta;
-
-        return new Vector3(newX, newY, point.z);
-    }
-
 }
