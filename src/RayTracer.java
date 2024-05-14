@@ -53,32 +53,34 @@ public class RayTracer {
             e.printStackTrace();
         }
 
+        // ? Разрешение изображения
+        int width = (int)data_map.get("width")[0], height = (int)data_map.get("height")[0];
+
+        // ? Создание двух отдельных изображений для куба и сферы
+        BufferedImage sphereImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        BufferedImage cubeImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+
+        // ? Определение позиции камеры
+        Vector3 cameraPos = new Vector3(data_map.get("camera_pos")[0], data_map.get("camera_pos")[1], data_map.get("camera_pos")[2]);
+
+        // ? Определение поверхности под сферой (плоскость)
+        Plane plane = new Plane(new Vector3(data_map.get("plane_pos")[0], data_map.get("plane_pos")[1], data_map.get("plane_pos")[2]),
+                -1.5, FLAT_COLOR);
+
+        // ? Определение сферы
+        Sphere sphere = new Sphere(new Vector3(data_map.get("sphere")[0], data_map.get("sphere")[1], data_map.get("sphere")[2]),
+                data_map.get("sphere")[3], SPHERE_COLOR, data_map.get("sphere")[4], data_map.get("sphere")[5]);
+
+        // ? Определение источника света
+        Vector3 lightPos = new Vector3(data_map.get("light_pos")[0], data_map.get("light_pos")[1], data_map.get("light_pos")[2]);
+
         // * О_С_Н_О_В_Н_О_Й К_О_Д
         Runtime runtime = Runtime.getRuntime();
         double memoryBefore = runtime.totalMemory() - runtime.freeMemory();
 
-        int width = (int)data_map.get("width")[0], height = (int)data_map.get("height")[0];
-
-        // Создание двух отдельных изображений для куба и сферы
-        BufferedImage sphereImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        BufferedImage cubeImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-
-        // Определение позиции камеры
-        Vector3 cameraPos = new Vector3(data_map.get("camera_pos")[0], data_map.get("camera_pos")[1], data_map.get("camera_pos")[2]);
-
-        // Определение поверхности под сферой (плоскость)
-        Plane plane = new Plane(new Vector3(data_map.get("plane_pos")[0], data_map.get("plane_pos")[1], data_map.get("plane_pos")[2]),
-                -1.5, FLAT_COLOR);
-
-        // Определение сферы
-        Sphere sphere = new Sphere(new Vector3(data_map.get("sphere")[0], data_map.get("sphere")[1], data_map.get("sphere")[2]),
-                data_map.get("sphere")[3], SPHERE_COLOR, data_map.get("sphere")[4], data_map.get("sphere")[5]);
-
-        // Определение источника света
-        Vector3 lightPos = new Vector3(data_map.get("light_pos")[0], data_map.get("light_pos")[1], data_map.get("light_pos")[2]);
-
         long time = System.currentTimeMillis();
 
+        // ! Т_Р_А_С_С_И_Р_О_В_К_А С_Ф_Е_Р_Ы
         ExecutorService rayTracingExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
         for (int j = 0; j < height; j++) {
@@ -120,7 +122,7 @@ public class RayTracer {
             e.printStackTrace();
         }
 
-
+        // ! Т_Р_А_С_С_И_Р_О_В_К_А К_У_Б_А
 //        Cube cube = new Cube(new Vector3(-1, -1, -3), new Vector3(1, 1, -5), Color.BLUE, 0.15, 0.2);
 //
 //        // Трассировка куба
@@ -186,7 +188,7 @@ public class RayTracer {
         }
     }
 
-    // Основная логика трассировки лучей
+    // * Основная логика трассировки лучей
     public static Color trace_sphere(Ray ray, Sphere sphere, Vector3 lightPos, Color lightColor) {
         double t = sphere.intersect(ray);
         if (t > 0) {
@@ -219,7 +221,7 @@ public class RayTracer {
         }
     }
 
-    // Основная логика трассировки лучей для куба
+    // * Основная логика трассировки лучей для куба
     public static Color trace_cub(Ray ray, Cube cube, Vector3 lightPos, Color lightColor) {
         double t = cube.intersect(ray);
         if (t > 0) {
@@ -228,21 +230,21 @@ public class RayTracer {
             Vector3 toLight = lightPos.subtract(intersectionPoint).normalize();
             Vector3 toCamera = ray.origin.subtract(intersectionPoint).normalize();
 
-            // Вычисляем интенсивность света и коэффициент тени
+            // ? Вычисляем интенсивность света и коэффициент тени
             double lightIntensity = Cube.calculateLightIntensity(intersectionPoint, lightPos);
             double shadowFactor = Cube.calculateShadowFactor(intersectionPoint, lightPos);
 
 
-            // Расчет блеска на поверхности объекта (модель Фонга)
-            double ambient = 0.1; // Коэффициент окружающего освещения
+            // ? Расчет блеска на поверхности объекта (модель Фонга)
+            double ambient = 0.1; // ? Коэффициент окружающего освещения
             double diffuse = Math.max(0, normal.dot(toLight));
             Vector3 reflected = normal.scale(2 * normal.dot(toLight)).subtract(toLight).normalize();
-            double specular = Math.pow(Math.max(0, reflected.dot(toCamera)), 32); // Коэффициент блеска
+            double specular = Math.pow(Math.max(0, reflected.dot(toCamera)), 32); // ? Коэффициент блеска
 
-            // Общий цвет, учитывающий освещенность, тени и блеск
+            // ? Общий цвет, учитывающий освещенность, тени и блеск
             double intensity = ambient + diffuse + specular;
 
-            // Учитываем коэффициенты поглощения и отражения
+            // ? Учитываем коэффициенты поглощения и отражения
             double red = Math.min(255, (int) (cube.color.getRed() * (1 - cube.absorption) * intensity * shadowFactor * lightIntensity + cube.reflection * lightColor.getRed()));
             double green = Math.min(255, (int) (cube.color.getGreen() * (1 - cube.absorption) * intensity * shadowFactor * lightIntensity + cube.reflection * lightColor.getGreen()));
             double blue = Math.min(255, (int) (cube.color.getBlue() * (1 - cube.absorption) * intensity * shadowFactor * lightIntensity + cube.reflection * lightColor.getBlue()));
