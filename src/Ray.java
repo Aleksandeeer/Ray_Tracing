@@ -7,11 +7,7 @@ class Ray {
         this.direction = direction;
     }
 
-    public Vector3 getOrigin() {
-        return origin;
-    }
-
-    public Vector3 getDirection() {
-        return direction;
+    public Vector3 pointAtParameter(double t) {
+        return origin.add(direction.scale(t));
     }
 }

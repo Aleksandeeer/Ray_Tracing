@@ -33,10 +33,6 @@ class Sphere {
         }
     }
 
-    public Vector3 getCenter() {
-        return center;
-    }
-
     public static double calculateLightIntensity(Ray ray, Sphere sphere, Vector3 lightPos) {
         // Вычисляем расстояние от точки пересечения до источника света
         Vector3 intersectionPoint = ray.origin.add(ray.direction.scale(sphere.intersect(ray)));
@@ -58,30 +54,50 @@ class Sphere {
         return Math.max(0, 1 - distanceToLight / maxDistance);
     }
 
-    // Проверка на нахождение в тени
-    public static boolean isShadowed(Ray ray, Sphere sphere, Vector3 lightPos, Plane plane) {
-        // Пересекаем луч с сферой
-        double tSphere = sphere.intersect(ray);
+    // * Основная логика трассировки лучей сферы
+    public static Color trace_sphere(Ray ray, Sphere sphere, Vector3 lightPos, Color lightColor) {
+        double t = sphere.intersect(ray);
+        if (t > 0) {
+            Vector3 intersectionPoint = ray.origin.add(ray.direction.scale(t));
+            Vector3 normal = intersectionPoint.subtract(sphere.center).normalize();
+            Vector3 toLight = lightPos.subtract(intersectionPoint).normalize();
+            Vector3 toCamera = ray.origin.subtract(intersectionPoint).normalize();
 
-        // Если пересечения нет, точка находится не в тени
-        if (tSphere <= 0) {
-            return false;
+            // Вычисляем интенсивность света и коэффициент тени
+            double lightIntensity = Sphere.calculateLightIntensity(ray, sphere, lightPos);
+            double shadowFactor = Sphere.calculateShadowFactor(ray, sphere, lightPos);
+
+            // Расчет блеска на поверхности объекта (модель Фонга)
+            double ambient = 0.1; // Коэффициент окружающего освещения
+            double diffuse = Math.max(0, normal.dot(toLight));
+            Vector3 reflected = normal.scale(2 * normal.dot(toLight)).subtract(toLight).normalize();
+            double specular = Math.pow(Math.max(0, reflected.dot(toCamera)), 32); // Коэффициент блеска
+
+            // Общий цвет, учитывающий освещенность, тени и блеск
+            double intensity = ambient + diffuse + specular;
+
+            // Учитываем коэффициенты поглощения и отражения
+            double red = Math.min(255, (int) (sphere.color.getRed() * (1 - sphere.absorption) * intensity * shadowFactor * lightIntensity + sphere.reflection * lightColor.getRed()));
+            double green = Math.min(255, (int) (sphere.color.getGreen() * (1 - sphere.absorption) * intensity * shadowFactor * lightIntensity + sphere.reflection * lightColor.getGreen()));
+            double blue = Math.min(255, (int) (sphere.color.getBlue() * (1 - sphere.absorption) * intensity * shadowFactor * lightIntensity + sphere.reflection * lightColor.getBlue()));
+
+            return new Color((int) red, (int) green, (int) blue);
+        } else {
+            return RayTracer.SKY_COLOR;
         }
-
-        // Находим точку пересечения со сферой
-        Vector3 intersectionPoint = ray.origin.add(ray.direction.scale(tSphere));
-
-        // Вычисляем виртуальный луч от точки пересечения до плоскости
-        Ray virtualRay = new Ray(intersectionPoint, plane.getNormal());
-
-        // Находим точку пересечения виртуального луча с плоскостью
-        double tPlane = plane.intersect(virtualRay);
-
-        // Проверяем, находится ли точка пересечения внутри определенной области вокруг сферы
-        double shadowRadius = 1.5; // Радиус области вокруг сферы, в которой будет тень
-        Vector3 sphereCenterToIntersection = intersectionPoint.subtract(sphere.getCenter());
-        double distanceToSphereCenter = sphereCenterToIntersection.length();
-
-        return tPlane > 0 && distanceToSphereCenter < sphere.getRadius() + shadowRadius;
     }
+
+    public static boolean isShadowed(Ray ray, Sphere sphere, Vector3 lightPos, Plane plane) {
+        Vector3 intersectionPoint = ray.pointAtParameter(sphere.intersect(ray));
+        Vector3 shadowRayDirection = lightPos.subtract(intersectionPoint).normalize();
+        Ray shadowRay = new Ray(intersectionPoint, shadowRayDirection);
+
+        // Check if the shadow ray intersects the sphere or plane
+        double tSphereShadow = sphere.intersect(shadowRay);
+        double tPlaneShadow = plane.intersect(shadowRay);
+
+        return (tSphereShadow > 0 && tSphereShadow < lightPos.subtract(intersectionPoint).length()) ||
+                (tPlaneShadow > 0 && tPlaneShadow < lightPos.subtract(intersectionPoint).length());
+    }
+
 }

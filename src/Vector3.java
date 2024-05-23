@@ -19,6 +19,15 @@ class Vector3 {
         return Math.sqrt(x * x + y * y + z * z);
     }
 
+    Vector3 cross(Vector3 v) {
+        return new Vector3(
+                this.y * v.z - this.z * v.y,
+                this.z * v.x - this.x * v.z,
+                this.x * v.y - this.y * v.x
+        );
+    }
+
+
     Vector3 scale(double scalar) {
         return new Vector3(x * scalar, y * scalar, z * scalar);
     }

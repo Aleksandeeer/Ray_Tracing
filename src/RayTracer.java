@@ -5,20 +5,21 @@ import java.io.*;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class RayTracer {
-    private static final Color SKY_COLOR = new Color(0, 247, 255, 255);
+    public static final Color SKY_COLOR = new Color(0, 247, 255, 255);
     private static final Color RAY_COLOR = new Color(255, 255, 255, 255);
     private static final Color FLAT_COLOR = new Color(62, 255, 107, 255);
     private static final Color SPHERE_COLOR = new Color(255, 0, 0, 255);
-
-    CacheManager cacheManager = CacheManager.getInstance();
+    public static final Color CUBE_COLOR = new Color(208, 100, 253, 255);
 
     public static void main(String[] args) {
         // * Д_А_Н_Н_Ы_Е И_З Ф_А_Й_Л_А
@@ -65,7 +66,7 @@ public class RayTracer {
 
         // ? Определение поверхности под сферой (плоскость)
         Plane plane = new Plane(new Vector3(data_map.get("plane_pos")[0], data_map.get("plane_pos")[1], data_map.get("plane_pos")[2]),
-                -1.5, FLAT_COLOR);
+                data_map.get("plane_pos")[3], FLAT_COLOR);
 
         // ? Определение сферы
         Sphere sphere = new Sphere(new Vector3(data_map.get("sphere")[0], data_map.get("sphere")[1], data_map.get("sphere")[2]),
@@ -107,7 +108,7 @@ public class RayTracer {
                     double tSphere = sphere.intersect(ray);
                     if (tSphere > 0 && tSphere < minT) {
                         minT = tSphere;
-                        pixelColor = trace_sphere(ray, sphere, lightPos, RAY_COLOR);
+                        pixelColor = Sphere.trace_sphere(ray, sphere, lightPos, RAY_COLOR);
                     }
 
                     sphereImage.setRGB(i, y, pixelColor.getRGB());
@@ -123,41 +124,59 @@ public class RayTracer {
         }
 
         // ! Т_Р_А_С_С_И_Р_О_В_К_А К_У_Б_А
-//        Cube cube = new Cube(new Vector3(-1, -1, -3), new Vector3(1, 1, -5), Color.BLUE, 0.15, 0.2);
-//
-//        // Трассировка куба
-//        for (int j = 0; j < height; j++) {
-//            y = (1 - 2 * (j + 0.5) / (double) height);
-//            for (int i = 0; i < width; i++) {
-//                x = (2 * (i + 0.5) / (double) width - 1);
-//                Ray ray = new Ray(cameraPos, new Vector3(x, y, -1).normalize());
-//
-//                // Переменные для хранения ближайшего пересечения и цвета пикселя
-//                minT = Double.POSITIVE_INFINITY;
-//                pixelColor = SKY_COLOR;
-//
-//                // Проверяем пересечение с плоскостью, только если пока не найдено ближайшее пересечение
-//                tPlane = plane.intersect(ray);
-//                if (tPlane > 0 && tPlane < minT) {
-//                    minT = tPlane;
-//                    if (!Cube.isShadowed(ray, cube, lightPos, plane) && lightPos.subtract(ray.origin.add(ray.direction.scale(tPlane))).dot(cube.maxPoint.subtract(lightPos)) > 0) {
-//                        pixelColor = plane.getColor(); // Освещенная точка
-//                    } else {
-//                        pixelColor = plane.getColor().darker(); // Тень от куба
-//                    }
-//                }
-//
-//                // Проверяем пересечение с кубом только если плоскость не пересекается или пересечение куба ближе
-//                double tCube = cube.intersect(ray);
-//                if (tCube > 0 && tCube < minT) {
-//                    minT = tCube;
-//                    pixelColor = trace_cub(ray, cube, lightPos, RAY_COLOR);
-//                }
-//
-//                // Устанавливаем цвет пикселя в изображении
-//                cubeImage.setRGB(i, j, pixelColor.getRGB());
-//            }
-//        }
+        Cube cube = new Cube(new Vector3(-1.83, -1, -2.41), new Vector3(-0.41, 1, -5.54), Color.BLUE, 0.15, 0.2, init_triangles());
+
+        double y, x, minT;
+        Color pixelColor;
+        double tPlane;
+
+        for (int j = 0; j < height; j++) {
+            y = (1 - 2 * (j + 0.5) / (double) height);
+            for (int i = 0; i < width; i++) {
+                x = (2 * (i + 0.5) / (double) width - 1);
+                Ray ray = new Ray(cameraPos, new Vector3(x, y, -1).normalize());
+
+                // Переменные для хранения ближайшего пересечения и цвета пикселя
+                minT = Double.POSITIVE_INFINITY;
+                pixelColor = SKY_COLOR;
+
+                // Проверяем пересечение с плоскостью, только если пока не найдено ближайшее пересечение
+                tPlane = plane.intersect(ray);
+                if (tPlane > 0 && tPlane < minT) {
+                    minT = tPlane;
+
+                    // Проверка, отбрасывает ли кубик тень на эту точку
+                    Vector3 intersectionPoint = ray.origin.add(ray.direction.scale(tPlane));
+                    Ray shadowRay = new Ray(intersectionPoint, lightPos.subtract(intersectionPoint).normalize());
+
+                    boolean inShadow = false;
+                    for (Triangle triangle : cube.triangles) {
+                        if (triangle.intersect(shadowRay) > 0) {
+                            inShadow = true;
+                            break;
+                        }
+                    }
+
+                    if (inShadow) {
+                        pixelColor = plane.getColor().darker();
+                    } else {
+                        pixelColor = plane.getColor();
+                    }
+                }
+
+                // Проверяем пересечение с треугольниками
+                for (Triangle triangle : cube.triangles) {
+                    double tTriangle = triangle.intersect(ray);
+                    if (tTriangle > 0 && tTriangle < minT) {
+                        minT = tTriangle;
+                        pixelColor = Cube.trace_cub_part(ray, triangle, lightPos, Color.WHITE);
+                    }
+                }
+
+                // Устанавливаем цвет пикселя в изображении
+                cubeImage.setRGB(i, j, pixelColor.getRGB());
+            }
+        }
 
         // * С_Т_А_Т_И_С_Т_И_Ч_Е_С_К_И_Е Д_А_Н_Н_Ы_Е
         {
@@ -188,70 +207,58 @@ public class RayTracer {
         }
     }
 
-    // * Основная логика трассировки лучей
-    public static Color trace_sphere(Ray ray, Sphere sphere, Vector3 lightPos, Color lightColor) {
-        double t = sphere.intersect(ray);
-        if (t > 0) {
-            Vector3 intersectionPoint = ray.origin.add(ray.direction.scale(t));
-            Vector3 normal = intersectionPoint.subtract(sphere.center).normalize();
-            Vector3 toLight = lightPos.subtract(intersectionPoint).normalize();
-            Vector3 toCamera = ray.origin.subtract(intersectionPoint).normalize();
+    public static List<Triangle> init_triangles() {
+        double size = 2.0;
+        Vector3 center = new Vector3(0, 0, -5);
+        Vector3[] vertices = Cube.rotateCube(center, size, 45); // Поворот на 20 градусов относительно оси y
 
-            // Вычисляем интенсивность света и коэффициент тени
-            double lightIntensity = Sphere.calculateLightIntensity(ray, sphere, lightPos);
-            double shadowFactor = Sphere.calculateShadowFactor(ray, sphere, lightPos);
+        List<Triangle> triangles = new ArrayList<>();
 
-            // Расчет блеска на поверхности объекта (модель Фонга)
-            double ambient = 0.1; // Коэффициент окружающего освещения
-            double diffuse = Math.max(0, normal.dot(toLight));
-            Vector3 reflected = normal.scale(2 * normal.dot(toLight)).subtract(toLight).normalize();
-            double specular = Math.pow(Math.max(0, reflected.dot(toCamera)), 32); // Коэффициент блеска
+        double reflection = 0.25;
+        double absortion = 0.2;
+        // Грани куба
+        // Передняя
+        triangles.add(new Triangle(vertices[0], vertices[2], vertices[3], RayTracer.CUBE_COLOR, reflection, absortion));
+        triangles.add(new Triangle(vertices[0], vertices[3], vertices[1], RayTracer.CUBE_COLOR, reflection, absortion));
+        // Задняя
+        triangles.add(new Triangle(vertices[4], vertices[6], vertices[7], RayTracer.CUBE_COLOR, reflection, absortion));
+        triangles.add(new Triangle(vertices[4], vertices[7], vertices[5], RayTracer.CUBE_COLOR, reflection, absortion));
+        // Верхняя
+        triangles.add(new Triangle(vertices[0], vertices[4], vertices[5], RayTracer.CUBE_COLOR, reflection, absortion));
+        triangles.add(new Triangle(vertices[0], vertices[5], vertices[1], RayTracer.CUBE_COLOR, reflection, absortion));
+        // Нижняя
+        triangles.add(new Triangle(vertices[2], vertices[6], vertices[7], RayTracer.CUBE_COLOR, reflection, absortion));
+        triangles.add(new Triangle(vertices[2], vertices[7], vertices[3], RayTracer.CUBE_COLOR, reflection, absortion));
+        // Левая
+        triangles.add(new Triangle(vertices[0], vertices[6], vertices[4], Color.WHITE, reflection, absortion));
+        triangles.add(new Triangle(vertices[0], vertices[2], vertices[6], Color.WHITE, reflection, absortion));
+        // Правая
+        triangles.add(new Triangle(vertices[1], vertices[7], vertices[5], RayTracer.CUBE_COLOR, reflection, absortion));
+        triangles.add(new Triangle(vertices[1], vertices[3], vertices[7], RayTracer.CUBE_COLOR, reflection, absortion));
 
-            // Общий цвет, учитывающий освещенность, тени и блеск
-            double intensity = ambient + diffuse + specular;
-
-            // Учитываем коэффициенты поглощения и отражения
-            double red = Math.min(255, (int) (sphere.color.getRed() * (1 - sphere.absorption) * intensity * shadowFactor * lightIntensity + sphere.reflection * lightColor.getRed()));
-            double green = Math.min(255, (int) (sphere.color.getGreen() * (1 - sphere.absorption) * intensity * shadowFactor * lightIntensity + sphere.reflection * lightColor.getGreen()));
-            double blue = Math.min(255, (int) (sphere.color.getBlue() * (1 - sphere.absorption) * intensity * shadowFactor * lightIntensity + sphere.reflection * lightColor.getBlue()));
-
-            return new Color((int) red, (int) green, (int) blue);
-        } else {
-            return SKY_COLOR;
-        }
-    }
-
-    // * Основная логика трассировки лучей для куба
-    public static Color trace_cub(Ray ray, Cube cube, Vector3 lightPos, Color lightColor) {
-        double t = cube.intersect(ray);
-        if (t > 0) {
-            Vector3 intersectionPoint = ray.origin.add(ray.direction.scale(t));
-            Vector3 normal = Cube.getNormal(intersectionPoint, cube);
-            Vector3 toLight = lightPos.subtract(intersectionPoint).normalize();
-            Vector3 toCamera = ray.origin.subtract(intersectionPoint).normalize();
-
-            // ? Вычисляем интенсивность света и коэффициент тени
-            double lightIntensity = Cube.calculateLightIntensity(intersectionPoint, lightPos);
-            double shadowFactor = Cube.calculateShadowFactor(intersectionPoint, lightPos);
+        center = new Vector3(5, 5, -7);
+        vertices = Cube.rotateCube(center, size, 45);
+        // Грани куба
+        // Передняя
+        triangles.add(new Triangle(vertices[0], vertices[2], vertices[3], Color.YELLOW, reflection, absortion));
+        triangles.add(new Triangle(vertices[0], vertices[3], vertices[1], Color.YELLOW, reflection, absortion));
+        // Задняя
+        triangles.add(new Triangle(vertices[4], vertices[6], vertices[7], RayTracer.CUBE_COLOR, reflection, absortion));
+        triangles.add(new Triangle(vertices[4], vertices[7], vertices[5], RayTracer.CUBE_COLOR, reflection, absortion));
+        // Верхняя
+        triangles.add(new Triangle(vertices[0], vertices[4], vertices[5], RayTracer.CUBE_COLOR, reflection, absortion));
+        triangles.add(new Triangle(vertices[0], vertices[5], vertices[1], RayTracer.CUBE_COLOR, reflection, absortion));
+        // Нижняя
+        triangles.add(new Triangle(vertices[2], vertices[6], vertices[7], Color.RED, reflection, absortion));
+        triangles.add(new Triangle(vertices[2], vertices[7], vertices[3], Color.RED, reflection, absortion));
+        // Левая
+        triangles.add(new Triangle(vertices[0], vertices[6], vertices[4], Color.WHITE, reflection, absortion));
+        triangles.add(new Triangle(vertices[0], vertices[2], vertices[6], Color.WHITE, reflection, absortion));
+        // Правая
+        triangles.add(new Triangle(vertices[1], vertices[7], vertices[5], Color.RED, reflection, absortion));
+        triangles.add(new Triangle(vertices[1], vertices[3], vertices[7], Color.RED, reflection, absortion));
 
 
-            // ? Расчет блеска на поверхности объекта (модель Фонга)
-            double ambient = 0.1; // ? Коэффициент окружающего освещения
-            double diffuse = Math.max(0, normal.dot(toLight));
-            Vector3 reflected = normal.scale(2 * normal.dot(toLight)).subtract(toLight).normalize();
-            double specular = Math.pow(Math.max(0, reflected.dot(toCamera)), 32); // ? Коэффициент блеска
-
-            // ? Общий цвет, учитывающий освещенность, тени и блеск
-            double intensity = ambient + diffuse + specular;
-
-            // ? Учитываем коэффициенты поглощения и отражения
-            double red = Math.min(255, (int) (cube.color.getRed() * (1 - cube.absorption) * intensity * shadowFactor * lightIntensity + cube.reflection * lightColor.getRed()));
-            double green = Math.min(255, (int) (cube.color.getGreen() * (1 - cube.absorption) * intensity * shadowFactor * lightIntensity + cube.reflection * lightColor.getGreen()));
-            double blue = Math.min(255, (int) (cube.color.getBlue() * (1 - cube.absorption) * intensity * shadowFactor * lightIntensity + cube.reflection * lightColor.getBlue()));
-
-            return new Color((int) red, (int) green, (int) blue);
-        } else {
-            return SKY_COLOR;
-        }
+        return triangles;
     }
 }
